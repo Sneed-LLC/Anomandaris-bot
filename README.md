@@ -1,3 +1,4 @@
-# Elon-s-Musk
-Discord bot that listens to elon's blabbering
+# Anomandaris
+
+Discord bot to track dota 2 games.
 
