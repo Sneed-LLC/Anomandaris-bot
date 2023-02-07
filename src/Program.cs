@@ -3,33 +3,54 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
-namespace TwitterFollowism
+namespace AnomandarisBotApp
 {
     class Program
     {
         private static DiscordBot _bot;
         static string dir = string.Empty;
         static DiscordConfigJson discordConfig;
-        static SavedRecords savedRecords;
+        static SavedGames savedRecords;
+        private static bool isConfigured = false;
+        private static CancellationToken _cancellationToken;
+        public static CancellationTokenSource _tokenSource { get; private set; }
 
-        public const int TakeLastGames = 10;
+
         static async Task Main()
         {
-            //SetupDirectoryConfigs();
+            _tokenSource = CancellationTokenSource.CreateLinkedTokenSource(new CancellationToken());
+            AppDomain.CurrentDomain.ProcessExit += AppDomain_ProcessExit;
 
-            //twitterApiConfig.UsersToTrack = usersToTrackArr;
-            //Console.WriteLine($"Starting to track {string.Join(',', usersToTrackArr)}");
+            while (!isConfigured)
+            {
+                try
+                {
+                    SetupDirectoryConfigs();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
 
             await SetupDiscordBot(discordConfig);
 
             var dotaBot = new Dota2OpenApi(_bot, savedRecords);
-
-            var infPoll = dotaBot.Run();
+            var infPoll = dotaBot.Run(_tokenSource.Token);
             infPoll.GetAwaiter().GetResult();
 
             Console.WriteLine("Main Thread shutting down");
+        }
+
+        private static void AppDomain_ProcessExit(object sender, EventArgs e)
+        {
+            _tokenSource.Cancel();
+            Thread.Sleep(60000);
+
+            Environment.Exit(0);
         }
 
         private static Task SetupDiscordBot(DiscordConfigJson configParsed)
@@ -60,10 +81,11 @@ namespace TwitterFollowism
             var discordCfg = File.ReadAllText(discordConfigRoute);
             discordConfig = JsonConvert.DeserializeObject<DiscordConfigJson>(discordCfg);
 
-            var savedRecordsRoute = $"{dir}savedRecords.json";
+            var savedRecordsRoute = $"{dir}savedGames.json";
             var savedRecordsStr = File.ReadAllText(savedRecordsRoute);
-            savedRecords = JsonConvert.DeserializeObject<SavedRecords>(savedRecordsStr) ?? new SavedRecords();
-
+            savedRecords = JsonConvert.DeserializeObject<SavedGames>(savedRecordsStr) ?? new SavedGames();
+            savedRecords.SavedRecordsRoute = savedRecordsRoute;
+            isConfigured = true;
 
         }
     }

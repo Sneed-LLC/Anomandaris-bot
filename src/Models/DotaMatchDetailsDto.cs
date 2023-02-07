@@ -1,9 +1,11 @@
 ﻿using Newtonsoft.Json;
 
-namespace TwitterFollowism.Models
+namespace AnomandarisBotApp.Models
 {
     public class DotaMatchDetailsDto
     {
+        [JsonProperty("match_id")]
+        public long MatchId { get; set; }
         public int Duration { get; set; }
 
         [JsonProperty("radiant_score")]
