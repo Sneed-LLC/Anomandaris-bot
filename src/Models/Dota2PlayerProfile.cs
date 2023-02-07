@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace TwitterFollowism.Models
+namespace AnomandarisBotApp.Models
 {
     public class Dota2PlayerProfile
     {

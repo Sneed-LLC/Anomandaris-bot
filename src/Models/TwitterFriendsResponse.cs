@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace TwitterFollowism
+namespace AnomandarisBotApp
 {
     public class TwitterFriendsResponse
     {

@@ -1,4 +1,4 @@
-﻿namespace TwitterFollowism.Models
+﻿namespace AnomandarisBotApp.Models
 {
     public class Enums
     {

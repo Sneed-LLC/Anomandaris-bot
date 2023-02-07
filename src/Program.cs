@@ -5,22 +5,29 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace TwitterFollowism
+namespace AnomandarisBotApp
 {
     class Program
     {
         private static DiscordBot _bot;
         static string dir = string.Empty;
         static DiscordConfigJson discordConfig;
-        static SavedRecords savedRecords;
+        static SavedGames savedRecords;
+        private static bool isConfigured = false;
 
-        public const int TakeLastGames = 10;
         static async Task Main()
         {
-            //SetupDirectoryConfigs();
-
-            //twitterApiConfig.UsersToTrack = usersToTrackArr;
-            //Console.WriteLine($"Starting to track {string.Join(',', usersToTrackArr)}");
+            while (!isConfigured)
+            {
+                try
+                {
+                    SetupDirectoryConfigs();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
 
             await SetupDiscordBot(discordConfig);
 
@@ -60,10 +67,11 @@ namespace TwitterFollowism
             var discordCfg = File.ReadAllText(discordConfigRoute);
             discordConfig = JsonConvert.DeserializeObject<DiscordConfigJson>(discordCfg);
 
-            var savedRecordsRoute = $"{dir}savedRecords.json";
+            var savedRecordsRoute = $"{dir}savedGames.json";
             var savedRecordsStr = File.ReadAllText(savedRecordsRoute);
-            savedRecords = JsonConvert.DeserializeObject<SavedRecords>(savedRecordsStr) ?? new SavedRecords();
-
+            savedRecords = JsonConvert.DeserializeObject<SavedGames>(savedRecordsStr) ?? new SavedGames();
+            savedRecords.SavedRecordsRoute = savedRecordsRoute;
+            isConfigured = true;
 
         }
     }
