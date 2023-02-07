@@ -99,51 +99,71 @@ namespace AnomandarisBotApp
             return Task.CompletedTask;
         }
 
+
+        private static bool _isRunningQuery = false;
         private async Task MessageReceivedAsync(SocketMessage arg)
         {
-            var message = arg as SocketUserMessage;
-            var context = new SocketCommandContext(_client, message);
-            if (!message.Author.IsBot)
+            if (_isRunningQuery)
+                return;
+            
+            _isRunningQuery = true;
+
+            try
             {
-                if (message.Content.Contains("ping", StringComparison.OrdinalIgnoreCase))
+                var message = arg as SocketUserMessage;
+                var context = new SocketCommandContext(_client, message);
+                if (!message.Author.IsBot && message.Author.Id != 164110045951295488)
                 {
-                    await context.Channel.SendMessageAsync("Wannussy");
+                    if (message.Content.Contains("ping", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await context.Channel.SendMessageAsync("Wannussy");
+                        return;
+                    }
+                    else if (message.Content.Contains("recent"))
+                    {
+                        var recentMatches = await this._dotaOpenApi.GetUserMatches(1);
+                        var recentMatchDetails = await this._dotaOpenApi.GetMatchDetails(recentMatches.FirstOrDefault().Item1, recentMatches.FirstOrDefault().Item2);
+
+                        await Print(context, recentMatchDetails);
+                    }
+                    else if (message.Content.Contains("posledno 10"))
+                    {
+                        var recentMatches = await this._dotaOpenApi.GetUserMatches(10);
+                        var recentMatchDetails = recentMatches.Take(10).Select(match => this._dotaOpenApi.GetMatchDetails(match.Item1, match.Item2));
+
+                        var res = await Task.WhenAll(recentMatchDetails);
+
+                        foreach (var matchDetails in res.Where(res => res != null))
+                        {
+                            await Print(context, matchDetails);
+                        }
+                    }
+                    else if (message.Content.Contains("puskai"))
+                    {
+                        var count = int.Parse(message.Content.Split(' ').Last().Trim());
+                        if (count > 30)
+                        {
+                            await Notify("Mamka ti i pedal maxa e 30 nibblet.");
+                            return;
+                        }
+
+                        var recentMatches = await this._dotaOpenApi.GetUserMatches(count);
+                        var recentMatchDetails = recentMatches.Take(count).Select(match => this._dotaOpenApi.GetMatchDetails(match.Item1, match.Item2));
+
+                        var res = await Task.WhenAll(recentMatchDetails);
+
+                        foreach (var matchDetails in res.Where(res => res != null))
+                        {
+                            await Print(context, matchDetails);
+                        }
+                    }
+
                     return;
                 }
-                else if (message.Content.Contains("recent"))
-                {
-                    var recentMatches = await this._dotaOpenApi.GetUserMatches(1);
-                    var recentMatchDetails = await this._dotaOpenApi.GetMatchDetails(recentMatches.FirstOrDefault().Item1, recentMatches.FirstOrDefault().Item2);
-
-                    await Print(context, recentMatchDetails);
-                }
-                else if (message.Content.Contains("posledno 10"))
-                {
-                    var recentMatches = await this._dotaOpenApi.GetUserMatches(10);
-                    var recentMatchDetails = recentMatches.Take(10).Select(match => this._dotaOpenApi.GetMatchDetails(match.Item1, match.Item2));
-
-                    var res = await Task.WhenAll(recentMatchDetails);
-
-                    foreach (var matchDetails in res.Where(res => res != null))
-                    {
-                        await Print(context, matchDetails);
-                    }
-                }
-                else if (message.Content.Contains("puskai"))
-                {
-                    var count = int.Parse(message.Content.Split(' ').Last().Trim());
-                    var recentMatches = await this._dotaOpenApi.GetUserMatches(count);
-                    var recentMatchDetails = recentMatches.Take(count).Select(match => this._dotaOpenApi.GetMatchDetails(match.Item1, match.Item2));
-
-                    var res = await Task.WhenAll(recentMatchDetails);
-
-                    foreach (var matchDetails in res.Where(res => res != null))
-                    {
-                        await Print(context, matchDetails);
-                    }
-                }
-
-                return;
+            }
+            finally
+            {
+                _isRunningQuery = false;
             }
         }
 

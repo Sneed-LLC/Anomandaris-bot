@@ -35,7 +35,7 @@ namespace AnomandarisBotApp
         private string RegexPattern = @"matches\/([0-9]+)";
         private string RegexKdaPattern = @"<span class=""kda-record""><span class=""value"">([0-9]+)<\/span>\/<span class=""value"">([0-9]+)<\/span>\/<span class=""value"">([0-9]+)<\/span><\/span>";
 
-        private const int DelayMs = 120000; // 2 mins
+        private const int DelayMs = 60000; // 1 min
 
         public Dota2OpenApi(DiscordBot discordBot,
             SavedGames savedGames)
@@ -51,13 +51,11 @@ namespace AnomandarisBotApp
             this._discordBot = discordBot;
             this._savedRecords = savedGames;
         }
-        public async Task Run()
+        public async Task Run(CancellationToken token)
         {
             this._discordBot.ConfigureDotaApi(this);
 
-            //await InitUsers();
-
-            while (true)
+            while (!token.IsCancellationRequested)
             {
                 var lastGames = await this.GetUserMatches(6);
                 if (_savedRecords.PlayersMatchesIds.Any() && _savedRecords.PlayersMatchesIds.ContainsKey(NikichaId) && _savedRecords.PlayersMatchesIds[NikichaId].Any())
@@ -69,50 +67,33 @@ namespace AnomandarisBotApp
                 {
                     _savedRecords.PlayersMatchesIds[NikichaId] = lastGames.Select(g => g.Item1).ToHashSet();
                     await _discordBot.Notify($"Started tracking new games after: {lastGames.First().Item1}");
+                    PersistSavedRecordsSynchronous();
                     await Task.Delay(DelayMs);
                     continue;
                 }
 
-                var lastMatchesTasks = lastGames.Select(g => this.GetMatchDetails(g.Item1, g.Item2));
-                var matchesDetails = await Task.WhenAll(lastMatchesTasks);
-
-                foreach (var match in matchesDetails)
+                if (lastGames.Any())
                 {
-                    await _discordBot.Notify(match);
+                    var lastMatchesTasks = lastGames.Select(g => this.GetMatchDetails(g.Item1, g.Item2));
+                    var matchesDetails = await Task.WhenAll(lastMatchesTasks);
+
+                    foreach (var match in matchesDetails)
+                    {
+                        await _discordBot.Notify(match);
+                    }
+
+                    foreach (var game in lastGames)
+                    {
+                        _savedRecords.PlayersMatchesIds[NikichaId].Add(game.Item1);
+                    }
+
+                    PersistSavedRecordsSynchronous();
                 }
-
-                foreach (var game in lastGames)
-                {
-                    _savedRecords.PlayersMatchesIds[NikichaId].Add(game.Item1);
-                }
-
-                PersistSavedRecordsSynchronous();
-
-                // parallel foreach ?
-                //foreach (var userWithFriends in usersFriends)
-                //{
-                //    var user = userWithFriends.user;
-                //    var newUserFriends = userWithFriends.friends;
-
-                //    var oldUserFriends = this._savedRecords.UserAndFriends[user];
-
-                //    var newFriends = newUserFriends.Except(oldUserFriends).ToArray();
-                //    var removedFriends = oldUserFriends.Except(newUserFriends).ToArray();
-
-                //    var friendsChanges = newFriends.Union(removedFriends).ToArray();
-
-                //    if (!friendsChanges.Any())
-                //    {
-                //        continue;
-                //    }
-
-                //    await SendDiscordMessages(user, newFriends, removedFriends, friendsChanges);
-                //    this._savedRecords.UserAndFriends[user] = newUserFriends;
-                //    
-                //}
 
                 await Task.Delay(DelayMs);
             }
+
+            await _discordBot.Notify("Merc out");
         }
        
         private void PersistSavedRecordsSynchronous()

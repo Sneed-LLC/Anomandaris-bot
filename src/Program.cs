@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AnomandarisBotApp
@@ -14,9 +15,15 @@ namespace AnomandarisBotApp
         static DiscordConfigJson discordConfig;
         static SavedGames savedRecords;
         private static bool isConfigured = false;
+        private static CancellationToken _cancellationToken;
+        public static CancellationTokenSource _tokenSource { get; private set; }
+
 
         static async Task Main()
         {
+            _tokenSource = CancellationTokenSource.CreateLinkedTokenSource(new CancellationToken());
+            AppDomain.CurrentDomain.ProcessExit += AppDomain_ProcessExit;
+
             while (!isConfigured)
             {
                 try
@@ -32,11 +39,18 @@ namespace AnomandarisBotApp
             await SetupDiscordBot(discordConfig);
 
             var dotaBot = new Dota2OpenApi(_bot, savedRecords);
-
-            var infPoll = dotaBot.Run();
+            var infPoll = dotaBot.Run(_tokenSource.Token);
             infPoll.GetAwaiter().GetResult();
 
             Console.WriteLine("Main Thread shutting down");
+        }
+
+        private static void AppDomain_ProcessExit(object sender, EventArgs e)
+        {
+            _tokenSource.Cancel();
+            Thread.Sleep(60000);
+
+            Environment.Exit(0);
         }
 
         private static Task SetupDiscordBot(DiscordConfigJson configParsed)
