@@ -236,4 +236,3 @@ _Pvt_Extensions
 .fake/
 /BuildNuGet.bat
 /BIP39.NET.nuspec
-discordConfig.json
