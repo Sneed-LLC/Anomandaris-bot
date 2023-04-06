@@ -57,7 +57,7 @@ namespace AnomandarisBotApp
 
             while (!token.IsCancellationRequested)
             {
-                var lastGames = await this.GetUserMatches(6);
+                var lastGames = await this.GetUserMatches(15);
                 if (_savedRecords.PlayersMatchesIds.Any() && _savedRecords.PlayersMatchesIds.ContainsKey(NikichaId) && _savedRecords.PlayersMatchesIds[NikichaId].Any())
                 {
                     lastGames = lastGames.Where(g => !_savedRecords.PlayersMatchesIds[NikichaId].Contains(g.Item1)).ToList();
@@ -77,7 +77,7 @@ namespace AnomandarisBotApp
                     var lastMatchesTasks = lastGames.Select(g => this.GetMatchDetails(g.Item1, g.Item2));
                     var matchesDetails = await Task.WhenAll(lastMatchesTasks);
 
-                    foreach (var match in matchesDetails)
+                    foreach (var match in matchesDetails.Where(md => md != null))
                     {
                         await _discordBot.Notify(match);
                     }
@@ -182,12 +182,14 @@ namespace AnomandarisBotApp
                 await _semaphoreSlim.WaitAsync();
 
                 string respRaw = "";
-                bool completed = false;
-                while (!completed)
+                bool completed = false;                
+                var attempt = 0;
+                while (!completed && attempt < 3)
                 {
+                    using var client = new HttpClient();
                     try
                     {
-                        respRaw = await this._client.GetStringAsync(string.Format(SpecificMatchUrl + matchId.ToString()));
+                        respRaw = await client.GetStringAsync(string.Format(SpecificMatchUrl + matchId.ToString()));
                         completed = true;
                         var matchResult = JsonConvert.DeserializeObject<DotaMatchDetailsDto>(respRaw);
                         matchResult.Players = matchResult.Players
@@ -200,8 +202,10 @@ namespace AnomandarisBotApp
                     {
                         Console.WriteLine($"Potential empty game: {SpecificMatchUrl}{matchId}");
                         Console.WriteLine(ex.Message);
-                        return null;
+                        attempt += 1;
                     }
+
+                    await Task.Delay(100);
                 }
             }
             finally

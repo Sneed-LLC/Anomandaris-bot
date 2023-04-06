@@ -10,7 +10,7 @@ namespace AnomandarisBotApp
 {
     class Program
     {
-        private static DiscordBot _bot;
+        private static DiscordBot _discordbot;
         static string dir = string.Empty;
         static DiscordConfigJson discordConfig;
         static SavedGames savedRecords;
@@ -38,7 +38,7 @@ namespace AnomandarisBotApp
 
             await SetupDiscordBot(discordConfig);
 
-            var dotaBot = new Dota2OpenApi(_bot, savedRecords);
+            var dotaBot = new Dota2OpenApi(_discordbot, savedRecords);
             var infPoll = dotaBot.Run(_tokenSource.Token);
             infPoll.GetAwaiter().GetResult();
 
@@ -47,22 +47,23 @@ namespace AnomandarisBotApp
 
         private static void AppDomain_ProcessExit(object sender, EventArgs e)
         {
+            _discordbot.Notify("Merc out").Wait();
             _tokenSource.Cancel();
-            Thread.Sleep(60000);
+            Thread.Sleep(600);
 
             Environment.Exit(0);
         }
 
         private static Task SetupDiscordBot(DiscordConfigJson configParsed)
         {
-            _bot = new DiscordBot(configParsed);
+            _discordbot = new DiscordBot(configParsed);
             AppDomain.CurrentDomain.ProcessExit += new EventHandler(CurrentDomain_ProcessExit);
-            return _bot.Init();
+            return _discordbot.Init();
         }
 
         private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
         {
-            _bot.Shutdown().GetAwaiter().GetResult();
+            _discordbot.Shutdown().GetAwaiter().GetResult();
         }
 
         private static void SetupDirectoryConfigs()
