@@ -126,17 +126,21 @@ namespace AnomandarisBotApp
 
                         await Print(context, recentMatchDetails);
                     }
-                    else if (message.Content.Contains("posledno 10"))
+                    else if (message.Content.Contains("posledno 10", StringComparison.InvariantCultureIgnoreCase) 
+                        || message.Content.Contains("absolute state", StringComparison.InvariantCultureIgnoreCase))
                     {
                         var recentMatches = await this._dotaOpenApi.GetUserMatches(10);
                         var recentMatchDetails = recentMatches.Take(10).Select(match => this._dotaOpenApi.GetMatchDetails(match.Item1, match.Item2));
 
                         var res = await Task.WhenAll(recentMatchDetails);
+                        res = res.Where(matchDetails => matchDetails != null).ToArray();
 
-                        foreach (var matchDetails in res.Where(res => res != null))
+                        foreach (var matchDetails in res)
                         {
                             await Print(context, matchDetails);
                         }
+
+                        await PrintMatchesDetails(context, res);
                     }
                     else if (message.Content.Contains("puskai"))
                     {
@@ -151,11 +155,14 @@ namespace AnomandarisBotApp
                         var recentMatchDetails = recentMatches.Take(count).Select(match => this._dotaOpenApi.GetMatchDetails(match.Item1, match.Item2));
 
                         var res = await Task.WhenAll(recentMatchDetails);
+                        res = res.Where(matchDetails => matchDetails != null).ToArray();
 
-                        foreach (var matchDetails in res.Where(res => res != null))
+                        foreach (var matchDetails in res)
                         {
                             await Print(context, matchDetails);
                         }
+
+                        await PrintMatchesDetails(context, res);
                     }
 
                     return;
@@ -165,6 +172,18 @@ namespace AnomandarisBotApp
             {
                 _isRunningQuery = false;
             }
+        }
+
+        private async Task PrintMatchesDetails(SocketCommandContext context, Models.DotaMatchDetailsDto[] res)
+        {
+            string batchDetails = GetBatchDetails(res);
+            await context.Channel.SendMessageAsync(batchDetails);
+        }
+
+        public async Task PrintMatchesDetails(Models.DotaMatchDetailsDto[] res)
+        {
+            string batchDetails = GetBatchDetails(res);
+            await Notify(batchDetails);
         }
 
         public async Task Notify(string message)
@@ -191,15 +210,15 @@ namespace AnomandarisBotApp
             await Notify(GameFormatting(recentMatchDetails));
         }
 
-        private static async Task Print(SocketCommandContext context, Models.DotaMatchDetailsDto recentMatchDetails)
+        private async Task Print(SocketCommandContext context, Models.DotaMatchDetailsDto recentMatchDetails)
         {
             await context.Channel.SendMessageAsync(GameFormatting(recentMatchDetails));
         }
 
-        private static string GameFormatting(Models.DotaMatchDetailsDto recentMatchDetails)
+        private string GameFormatting(Models.DotaMatchDetailsDto recentMatchDetails)
         {
             var nikicha = recentMatchDetails.Players.FirstOrDefault();
-            if ((nikicha.IsRadiant && nikicha.RadiantWin) || (!nikicha.IsRadiant && !nikicha.RadiantWin))
+            if (PlayerWon(nikicha))
             {
                 return $"Nikicha se razpisa! KDA: {nikicha.Kills}/{nikicha.Deaths}/{nikicha.Assists} NW: {nikicha.Networth} Denies: {nikicha.Denies} " +
                         $"Match: {Dota2OpenApi.DotabuffMatchUrlTemplate}{recentMatchDetails.MatchId} Duration: {TimeSpan.FromSeconds(recentMatchDetails.Duration).ToString(@"hh\:mm\:ss")}";
@@ -209,6 +228,31 @@ namespace AnomandarisBotApp
                 return $"Nikicha imashe incident! KDA: {nikicha.Kills}/{nikicha.Deaths}/{nikicha.Assists} NW: {nikicha.Networth} Denies: {nikicha.Denies} " +
                         $"Match: {Dota2OpenApi.DotabuffMatchUrlTemplate}{recentMatchDetails.MatchId} Duration: {TimeSpan.FromSeconds(recentMatchDetails.Duration).ToString(@"hh\:mm\:ss")}";
             }
+        }
+
+        public bool PlayerWon(Models.PlayerDto nikicha)
+        {
+            return (nikicha.IsRadiant && nikicha.RadiantWin) || (!nikicha.IsRadiant && !nikicha.RadiantWin);
+        }
+
+        private string GetBatchDetails(Models.DotaMatchDetailsDto[] res)
+        {
+            var games = res.Count();
+            var wins = res.Where(matchDetails =>
+            {
+                var playerInQuestion = matchDetails.Players.FirstOrDefault();
+                bool playerWon = PlayerWon(playerInQuestion);
+                return playerWon;
+            }).Count();
+
+            var losses = games - wins;
+            double winratePercent = Math.Round(((double)wins / (double)games) * 100, 2, MidpointRounding.ToZero);
+            string prefix = games > 1 ? $"Za {games} igri" : "V poslednata igra";
+            string razpisvaniq = wins > 1 ? "razpisvaniq" : "razpisvane";
+            string incidenti = losses > 1 ? "incidenta" : "incident";
+
+            string batchDetails = $"{prefix} Nikicha imashe {wins} {razpisvaniq} i {losses} {incidenti}. {winratePercent}% winrate";
+            return batchDetails;
         }
     }
 }
