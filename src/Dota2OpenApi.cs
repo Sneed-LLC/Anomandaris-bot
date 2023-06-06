@@ -87,6 +87,8 @@ namespace AnomandarisBotApp
                         _savedRecords.PlayersMatchesIds[NikichaId].Add(game.Item1);
                     }
 
+                    await _discordBot.PrintMatchesDetails(matchesDetails);
+
                     PersistSavedRecordsSynchronous();
                 }
 
